@@ -5,7 +5,13 @@
       "Bash(netstat -ano)",
       "Bash(awk '{print $5}')",
       "Bash(xargs -r taskkill /PID /F)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\Lucas\\\\Desktop\\\\correspondente dinamico\\\\.github\\\\workflows\")",
+      "Bash(git pull *)",
+      "Bash(git add *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Lucas\\Desktop\\correspondente dinamico\\.github"
     ]
   }
 }
