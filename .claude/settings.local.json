@@ -10,7 +10,8 @@
       "Bash(git pull *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git rm *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas\\Desktop\\correspondente dinamico\\.github"
