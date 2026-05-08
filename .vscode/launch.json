@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Executar e Depurar (Chrome)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "serverReadyAction": {
+                "pattern": "Local:.*http://localhost:([0-9]+)",
+                "uriFormat": "http://localhost:%s",
+                "action": "debugWithChrome",
+                "webRoot": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Executar e Depurar (Edge)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "serverReadyAction": {
+                "pattern": "Local:.*http://localhost:([0-9]+)",
+                "uriFormat": "http://localhost:%s",
+                "action": "debugWithEdge",
+                "webRoot": "${workspaceFolder}/src"
+            }
+        }
+    ]
+}
