@@ -53,11 +53,11 @@ export default function CadastroModal() {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (step < 3) setStep((s) => (s + 1) as Step)
     else {
       if (!aceitouTermos) return
-      register({ ...form, regioes: form.regioes ?? [] })
+      await register({ ...form, regioes: form.regioes ?? [] })
       close()
     }
   }

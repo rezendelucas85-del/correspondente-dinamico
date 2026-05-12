@@ -1,20 +1,24 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { User, Demanda, Proposta } from '../types'
+import * as api from '../services/api'
 import { mockUsers, mockDemandas } from '../data/mock'
+
+const USE_API = true // muda para false para usar dados mock sem o servidor
 
 interface AuthContextType {
   user: User | null
   demandas: Demanda[]
   isLoggedIn: boolean
-  login: (email: string, password: string) => boolean
+  loading: boolean
+  login: (email: string, password: string) => Promise<boolean>
   logout: () => void
-  register: (userData: Partial<User> & { senha: string }) => void
-  updateUser: (data: Partial<User>) => void
-  publishDemanda: (demanda: Omit<Demanda, 'id' | 'propostas' | 'createdAt' | 'contratanteId' | 'contratanteNome'>) => void
-  candidatar: (demandaId: string, mensagem: string) => void
-  confirmarProposta: (demandaId: string, propostaId: string) => void
-  concluirDemanda: (demandaId: string) => void
-  cancelarDemanda: (demandaId: string) => void
+  register: (userData: Partial<User> & { senha: string }) => Promise<void>
+  updateUser: (data: Partial<User>) => Promise<void>
+  publishDemanda: (demanda: Omit<Demanda, 'id' | 'propostas' | 'createdAt' | 'contratanteId' | 'contratanteNome'>) => Promise<void>
+  candidatar: (demandaId: string, mensagem: string) => Promise<void>
+  confirmarProposta: (demandaId: string, propostaId: string) => Promise<void>
+  concluirDemanda: (demandaId: string) => Promise<void>
+  cancelarDemanda: (demandaId: string) => Promise<void>
   showCadastro: boolean
   setShowCadastro: (v: boolean) => void
   showLogin: boolean
@@ -25,70 +29,54 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [demandas, setDemandas] = useState<Demanda[]>(mockDemandas)
+  const [demandas, setDemandas] = useState<Demanda[]>([])
+  const [loading, setLoading] = useState(true)
   const [showCadastro, setShowCadastro] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
 
-  const login = (email: string, _password: string) => {
-    const found = mockUsers.find((u) => u.email === email)
-    if (found) {
-      setUser(found)
-      return true
+  // Carrega demandas ao iniciar
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (USE_API) {
+          const data = await api.getDemandas()
+          setDemandas(data)
+        } else {
+          setDemandas(mockDemandas)
+        }
+      } catch {
+        // Servidor offline — usa mock como fallback
+        setDemandas(mockDemandas)
+      } finally {
+        setLoading(false)
+      }
     }
-    // Demo: any email/password works
+    load()
+  }, [])
+
+  const login = async (email: string, _password: string): Promise<boolean> => {
+    try {
+      if (USE_API) {
+        const found = await api.getUserByEmail(email)
+        if (found) { setUser(found); return true }
+      } else {
+        const found = mockUsers.find((u) => u.email === email)
+        if (found) { setUser(found); return true }
+      }
+    } catch { /* servidor offline, usa demo */ }
+
+    // Demo: qualquer email/senha funciona
     const demoUser: User = {
-      id: 'demo',
-      nome: 'lucas lima',
+      id: `demo-${Date.now()}`,
+      nome: email.split('@')[0],
       email,
-      cpf: '000.000.000-00',
+      cpf: '',
       tipoExecutor: 'Advogado(a) — OAB ativa',
-      oab: 'OAB/MG 165.121',
-      celular: '(31) 99999-9999',
+      oab: 'OAB/MG 000.000',
+      celular: '',
       cidade: 'Belo Horizonte',
       estado: 'MG',
-      regioes: ['Belo Horizonte', 'Contagem', 'Betim'],
-      areas: ['Trabalhista', 'Cível', 'Consumidor'],
-      avaliacao: 4.9,
-      totalDemandas: 47,
-      taxaConclusao: 100,
-      saldo: 0,
-      saldoRecebido: 0,
-      planoAtivo: false,
-      codigoIndicacao: 'AC7I8639',
-      indicadosAtivos: 3,
-      desconto: 9,
-      mensalidade: 91,
-      desde: 'Jan/2025',
-      badges: [],
-    }
-    setUser(demoUser)
-    return true
-  }
-
-  const logout = () => {
-    setUser(null)
-  }
-
-  const register = (userData: Partial<User> & { senha: string }) => {
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      nome: userData.nome ?? '',
-      email: userData.email ?? '',
-      cpf: userData.cpf ?? '',
-      rg: userData.rg,
-      cnh: userData.cnh,
-      tipoExecutor: userData.tipoExecutor ?? 'Advogado(a) — OAB ativa',
-      oab: userData.oab,
-      cnpj: userData.cnpj,
-      telefone: userData.telefone,
-      celular: userData.celular ?? '',
-      cep: userData.cep,
-      estado: userData.estado,
-      rua: userData.rua,
-      numero: userData.numero,
-      bairro: userData.bairro,
-      cidade: userData.cidade,
-      regioes: userData.regioes ?? [],
+      regioes: [],
       areas: [],
       avaliacao: 0,
       totalDemandas: 0,
@@ -103,30 +91,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       desde: new Date().toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
       badges: [],
     }
-    setUser(newUser)
+    setUser(demoUser)
+    return true
   }
 
-  const updateUser = (data: Partial<User>) => {
-    if (user) setUser({ ...user, ...data })
-  }
+  const logout = () => setUser(null)
 
-  const publishDemanda = (demanda: Omit<Demanda, 'id' | 'propostas' | 'createdAt' | 'contratanteId' | 'contratanteNome'>) => {
-    if (!user) return
-    const nova: Demanda = {
-      ...demanda,
-      id: `d${Date.now()}`,
-      propostas: [],
-      createdAt: new Date().toISOString(),
-      contratanteId: user.id,
-      contratanteNome: user.nome,
+  const register = async (userData: Partial<User> & { senha: string }) => {
+    const regioes = typeof userData.regioes === 'string'
+      ? (userData.regioes as unknown as string).split(',').map((r: string) => r.trim()).filter(Boolean)
+      : (userData.regioes ?? [])
+
+    const newUser = {
+      nome: userData.nome ?? '',
+      email: userData.email ?? '',
+      senha: userData.senha,
+      cpf: userData.cpf ?? '',
+      rg: userData.rg,
+      cnh: userData.cnh,
+      tipoExecutor: userData.tipoExecutor ?? 'Advogado(a) — OAB ativa',
+      oab: userData.oab,
+      cnpj: userData.cnpj,
+      telefone: userData.telefone,
+      celular: userData.celular ?? '',
+      cep: userData.cep,
+      estado: userData.estado,
+      rua: userData.rua,
+      numero: userData.numero,
+      bairro: userData.bairro,
+      cidade: userData.cidade,
+      regioes,
+      areas: [] as User['areas'],
+      avaliacao: 0,
+      totalDemandas: 0,
+      taxaConclusao: 0,
+      saldo: 0,
+      saldoRecebido: 0,
+      planoAtivo: false,
+      codigoIndicacao: `AC${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      indicadosAtivos: 0,
+      desconto: 0,
+      mensalidade: 100,
+      desde: new Date().toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+      badges: [] as string[],
     }
-    setDemandas((prev) => [nova, ...prev])
+
+    try {
+      if (USE_API) {
+        const created = await api.createUser(newUser)
+        setUser(created)
+      } else {
+        setUser({ ...newUser, id: `user-${Date.now()}` })
+      }
+    } catch {
+      setUser({ ...newUser, id: `user-${Date.now()}` })
+    }
   }
 
-  const candidatar = (demandaId: string, mensagem: string) => {
+  const updateUser = async (data: Partial<User>) => {
     if (!user) return
-    const proposta: Proposta = {
-      id: `p${Date.now()}`,
+    const updated = { ...user, ...data }
+    setUser(updated)
+    try {
+      if (USE_API) await api.updateUser(user.id, data)
+    } catch { /* silencioso */ }
+  }
+
+  const publishDemanda = async (demanda: Omit<Demanda, 'id' | 'propostas' | 'createdAt' | 'contratanteId' | 'contratanteNome'>) => {
+    if (!user) return
+    const payload = { ...demanda, contratanteId: user.id, contratanteNome: user.nome, executorId: null }
+    try {
+      if (USE_API) {
+        const nova = await api.createDemanda(payload)
+        setDemandas((prev) => [nova, ...prev])
+      } else {
+        const nova: Demanda = { ...payload, id: `d${Date.now()}`, propostas: [], createdAt: new Date().toISOString() }
+        setDemandas((prev) => [nova, ...prev])
+      }
+    } catch {
+      const nova: Demanda = { ...payload, id: `d${Date.now()}`, propostas: [], createdAt: new Date().toISOString() }
+      setDemandas((prev) => [nova, ...prev])
+    }
+  }
+
+  const candidatar = async (demandaId: string, mensagem: string) => {
+    if (!user) return
+    const proposta: Omit<Proposta, 'id'> & { demandaId: string } = {
+      demandaId,
       executorId: user.id,
       executorNome: user.nome,
       executorOab: user.oab,
@@ -134,56 +185,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mensagem,
       createdAt: new Date().toISOString(),
     }
-    setDemandas((prev) =>
-      prev.map((d) =>
-        d.id === demandaId ? { ...d, propostas: [...d.propostas, proposta] } : d
+    try {
+      if (USE_API) {
+        const criada = await api.createProposta(proposta)
+        setDemandas((prev) =>
+          prev.map((d) => d.id === demandaId ? { ...d, propostas: [...d.propostas, criada] } : d)
+        )
+      } else {
+        const criada: Proposta = { ...proposta, id: `p${Date.now()}` }
+        setDemandas((prev) =>
+          prev.map((d) => d.id === demandaId ? { ...d, propostas: [...d.propostas, criada] } : d)
+        )
+      }
+    } catch {
+      const criada: Proposta = { ...proposta, id: `p${Date.now()}` }
+      setDemandas((prev) =>
+        prev.map((d) => d.id === demandaId ? { ...d, propostas: [...d.propostas, criada] } : d)
       )
+    }
+  }
+
+  const confirmarProposta = async (demandaId: string, propostaId: string) => {
+    const demanda = demandas.find((d) => d.id === demandaId)
+    const proposta = demanda?.propostas.find((p) => p.id === propostaId)
+    try {
+      if (USE_API) await api.updateDemanda(demandaId, { status: 'confirmada', executorId: proposta?.executorId })
+    } catch { /* silencioso */ }
+    setDemandas((prev) =>
+      prev.map((d) => d.id === demandaId ? { ...d, status: 'confirmada', executorId: proposta?.executorId } : d)
     )
   }
 
-  const confirmarProposta = (demandaId: string, propostaId: string) => {
-    setDemandas((prev) =>
-      prev.map((d) => {
-        if (d.id !== demandaId) return d
-        const proposta = d.propostas.find((p) => p.id === propostaId)
-        return { ...d, status: 'confirmada', executorId: proposta?.executorId }
-      })
-    )
+  const concluirDemanda = async (demandaId: string) => {
+    try {
+      if (USE_API) await api.updateDemanda(demandaId, { status: 'concluida' })
+    } catch { /* silencioso */ }
+    setDemandas((prev) => prev.map((d) => d.id === demandaId ? { ...d, status: 'concluida' } : d))
   }
 
-  const concluirDemanda = (demandaId: string) => {
-    setDemandas((prev) =>
-      prev.map((d) => (d.id === demandaId ? { ...d, status: 'concluida' } : d))
-    )
-  }
-
-  const cancelarDemanda = (demandaId: string) => {
-    setDemandas((prev) =>
-      prev.map((d) => (d.id === demandaId ? { ...d, status: 'cancelada' } : d))
-    )
+  const cancelarDemanda = async (demandaId: string) => {
+    try {
+      if (USE_API) await api.updateDemanda(demandaId, { status: 'cancelada' })
+    } catch { /* silencioso */ }
+    setDemandas((prev) => prev.map((d) => d.id === demandaId ? { ...d, status: 'cancelada' } : d))
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        demandas,
-        isLoggedIn: !!user,
-        login,
-        logout,
-        register,
-        updateUser,
-        publishDemanda,
-        candidatar,
-        confirmarProposta,
-        concluirDemanda,
-        cancelarDemanda,
-        showCadastro,
-        setShowCadastro,
-        showLogin,
-        setShowLogin,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, demandas, isLoggedIn: !!user, loading,
+      login, logout, register, updateUser,
+      publishDemanda, candidatar, confirmarProposta, concluirDemanda, cancelarDemanda,
+      showCadastro, setShowCadastro, showLogin, setShowLogin,
+    }}>
       {children}
     </AuthContext.Provider>
   )

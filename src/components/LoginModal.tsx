@@ -12,9 +12,9 @@ export default function LoginModal() {
 
   const close = () => { setShowLogin(false); setError('') }
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !senha) { setError('Preencha todos os campos.'); return }
-    const ok = login(email, senha)
+    const ok = await login(email, senha)
     if (ok) close()
     else setError('Email ou senha invalidos.')
   }
